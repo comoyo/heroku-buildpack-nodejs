@@ -13,6 +13,7 @@ unset GIT_DIR
 # config
 SCONS_VERSION="1.2.0"
 S3_BUCKET="heroku-buildpack-nodejs"
+COMOYO_S3_BUCKET="comoyo-heroku-buildpack-nodejs"
 
 # parse and derive params
 BUILD_DIR=$1
@@ -162,14 +163,24 @@ package_download "nodejs" "${NODE_VERSION}" "${VENDORED_NODE}"
 package_download "npm" "${NPM_VERSION}" "${VENDORED_NPM}"
 package_download "scons" "${SCONS_VERSION}" "${VENDORED_SCONS}"
 
+# custom binaries
+echo "-----> Fetching ffmpeg binaries"
+VENDORED_FFMPEG=$(mktmpdir ffmpeg)
+FFMPEG_PACKAGE="https://s3-eu-west-1.amazonaws.com/${COMOYO_S3_BUCKET}/ffmpeg/ffmpeg-N-56602-g8b85d9b-static.tar.gz"
+curl $FFMPEG_PACKAGE -s -o - | tar xzf - -C $VENDORED_FFMPEG
+
 # vendor node into the slug
 PATH="$BUILD_DIR/bin:$PATH"
 echo "-----> Vendoring node into slug"
 mkdir -p "$BUILD_DIR/bin"
 cp "$VENDORED_NODE/bin/node" "$BUILD_DIR/bin/node"
 
+# vendor ffmpeg and ffprobe into the slug
+cp "$VENDORED_FFMPEG/ffmpeg/ffmpeg" "$BUILD_DIR/bin/ffmpeg"
+cp "$VENDORED_FFMPEG/ffmpeg/ffprobe" "$BUILD_DIR/bin/ffprobe"
+
 # setting up paths for building
-PATH="$VENDORED_SCONS:$VENDORED_NODE/bin:$PATH"
+PATH="$VENDORED_SCONS:$VENDORED_NODE/bin:$VENDORED_FFMPEG/ffmpeg:$PATH"
 INCLUDE_PATH="$VENDORED_NODE/include"
 export CPATH="$INCLUDE_PATH:$CPATH"
 export CPPPATH="$INCLUDE_PATH:$CPPPATH"
